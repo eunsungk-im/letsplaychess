@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Hard AI Chess</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/chessboard.js/1.0.0/css/chessboard.min.css"/>
+  <style>
+    #board { width: 500px; margin: 20px auto; }
+    #status { text-align: center; font-size: 20px; }
+  </style>
+</head>
+<body>
+
+<div id="board"></div>
+<div id="status"></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/chess.js/0.12.0/chess.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/chessboard.js/1.0.0/js/chessboard.min.js"></script>
+<script>
+  const board = Chessboard('board', {
+    draggable: true,
+    position: 'start',
+    onDrop: onDrop,
+    orientation: 'white'
+  });
+
+  const game = new Chess();
+
+  const stockfish = new Worker("https://cdn.jsdelivr.net/npm/stockfish/stockfish.js");
+
+  function onDrop(source, target) {
+    const move = game.move({ from: source, to: target, promotion: 'q' });
+
+    if (move === null) return 'snapback';
+    updateStatus();
+
+    window.setTimeout(makeAIMove, 250);
+  }
+
+  function makeAIMove() {
+    stockfish.postMessage("position fen " + game.fen());
+    stockfish.postMessage("go depth 18"); // 깊이 설정: 고난이도
+
+    stockfish.onmessage = function(event) {
+      const line = event.data;
+      if (line.startsWith('bestmove')) {
+        const move = line.split(' ')[1];
+        game.move({ from: move.substring(0, 2), to: move.substring(2, 4), promotion: 'q' });
+        board.position(game.fen());
+        updateStatus();
+      }
+    };
+  }
+
+  function updateStatus() {
+    let status = '';
+
+    if (game.in_checkmate()) {
+      status = '게임 끝 - ' + (game.turn() === 'w' ? 'AI 승리' : '플레이어 승리');
+    } else if (game.in_draw()) {
+      status = '무승부';
+    } else {
+      status = (game.turn() === 'w' ? '플레이어 차례' : 'AI 생각 중...');
+    }
+
+    document.getElementById('status').innerText = status;
+  }
+
+  updateStatus();
+</script>
+
+</body>
+</html>
