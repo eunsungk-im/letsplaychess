@@ -2,22 +2,24 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Hard AI Chess</title>
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/chessboard.js/1.0.0/css/chessboard.min.css"/>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/chessboard.js/1.0.0/css/chessboard.min.css" />
   <style>
+    body { text-align: center; font-family: Arial; margin-top: 20px; }
     #board { width: 500px; margin: 20px auto; }
-    #status { text-align: center; font-size: 20px; }
+    #status { font-size: 18px; margin-top: 10px; }
   </style>
 </head>
 <body>
 
+<h2>Hard AI Chess (Stockfish)</h2>
 <div id="board"></div>
-<div id="status"></div>
+<div id="status">게임 시작!</div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/chess.js/0.12.0/chess.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/chessboard.js/1.0.0/js/chessboard.min.js"></script>
 <script>
+  const game = new Chess();
   const board = Chessboard('board', {
     draggable: true,
     position: 'start',
@@ -25,27 +27,25 @@
     orientation: 'white'
   });
 
-  const game = new Chess();
-
-  const stockfish = new Worker("https://cdn.jsdelivr.net/npm/stockfish/stockfish.js");
+  const engine = new Worker('https://cdn.jsdelivr.net/npm/stockfish/stockfish.js');
 
   function onDrop(source, target) {
     const move = game.move({ from: source, to: target, promotion: 'q' });
-
     if (move === null) return 'snapback';
+    board.position(game.fen());
     updateStatus();
-
-    window.setTimeout(makeAIMove, 250);
+    window.setTimeout(makeAIMove, 200);
   }
 
   function makeAIMove() {
-    stockfish.postMessage("position fen " + game.fen());
-    stockfish.postMessage("go depth 18"); // 깊이 설정: 고난이도
+    engine.postMessage('position fen ' + game.fen());
+    engine.postMessage('go depth 20');
 
-    stockfish.onmessage = function(event) {
+    engine.onmessage = function(event) {
       const line = event.data;
       if (line.startsWith('bestmove')) {
         const move = line.split(' ')[1];
+        if (move === '(none)') return;
         game.move({ from: move.substring(0, 2), to: move.substring(2, 4), promotion: 'q' });
         board.position(game.fen());
         updateStatus();
@@ -55,15 +55,13 @@
 
   function updateStatus() {
     let status = '';
-
     if (game.in_checkmate()) {
-      status = '게임 끝 - ' + (game.turn() === 'w' ? 'AI 승리' : '플레이어 승리');
+      status = '체크메이트! ' + (game.turn() === 'w' ? 'AI 승리' : '플레이어 승리');
     } else if (game.in_draw()) {
       status = '무승부';
     } else {
-      status = (game.turn() === 'w' ? '플레이어 차례' : 'AI 생각 중...');
+      status = (game.turn() === 'w' ? '플레이어 차례입니다' : 'AI 생각 중...');
     }
-
     document.getElementById('status').innerText = status;
   }
 
